@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASX Portfolio Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--muted:#7d8590;--green:#3fb950;--red:#f85149;--blue:#58a6ff;--yellow:#d29922;--purple:#bc8cff}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;color:var(--text)}
+.nav-tag{background:rgba(88,166,255,.15);color:var(--blue);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+.container{max-width:1280px;margin:0 auto;padding:24px}
+.add-bar{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.add-bar label{font-weight:600;color:var(--muted);font-size:13px;white-space:nowrap}
+.input-wrap{position:relative;flex:1;min-width:180px}
+.input-wrap input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 14px;font-size:14px;font-family:'SF Mono','Fira Code',monospace;letter-spacing:.05em;text-transform:uppercase;outline:none;transition:border-color .15s}
+.input-wrap input:focus{border-color:var(--blue)}
+.input-wrap input::placeholder{text-transform:none;color:var(--muted);font-family:inherit;letter-spacing:0}
+.btn{padding:9px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#0d1117}
+.btn-primary:hover{background:#79b8ff}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+.popular{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:24px}
+.popular-label{color:var(--muted);font-size:12px}
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;font-family:'SF Mono',monospace;cursor:pointer;color:var(--muted);transition:all .15s}
+.chip:hover{border-color:var(--blue);color:var(--blue)}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+.summary-card .label{color:var(--muted);font-size:12px;margin-bottom:6px}
+.summary-card .value{font-size:22px;font-weight:700}
+.summary-card .sub{font-size:12px;color:var(--muted);margin-top:4px}
+.up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--muted)}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-weight:700;font-size:15px}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px}
+table{width:100%;border-collapse:collapse}
+th{background:var(--surface2);padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+th.right,td.right{text-align:right}
+td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(88,166,255,.04)}
+.ticker-badge{font-family:'SF Mono',monospace;font-weight:700;font-size:13px;color:var(--blue);background:rgba(88,166,255,.1);padding:3px 8px;border-radius:5px}
+.company-name{color:var(--muted);font-size:12px;margin-top:2px}
+.change-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600}
+.change-pill.up{background:rgba(63,185,80,.15)}.change-pill.down{background:rgba(248,81,73,.15)}
+.remove-btn{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:4px;transition:color .15s;line-height:1;font-size:14px}
+.remove-btn:hover{color:var(--red)}
+.empty-state{text-align:center;padding:60px 24px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:24px}
+.empty-state h3{color:var(--text);font-size:16px;margin-bottom:8px;margin-top:16px}
+.empty-state p{font-size:13px;max-width:320px;margin:0 auto}
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:20px;margin-bottom:24px}
+@media(max-width:600px){.charts-grid{grid-template-columns:1fr}}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.chart-header{padding:14px 18px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.chart-price{font-size:18px;font-weight:700}
+.chart-change{font-size:12px}
+.range-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;font-weight:600;padding:3px 8px;border-radius:5px;transition:all .15s}
+.range-btn:hover,.range-btn.active{background:var(--surface2);color:var(--text)}
+.chart-body{padding:12px 12px 16px;height:200px;position:relative}
+.toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.toast{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;animation:slideIn .2s ease;max-width:300px}
+.toast.error{border-color:var(--red);color:var(--red)}.toast.success{border-color:var(--green);color:var(--green)}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.disclaimer{font-size:11px;color:var(--muted);text-align:center;padding:16px;border-top:1px solid var(--border);margin-top:8px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    ASX Portfolio Tracker
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nav-tag">LIVE</span>
+    <span id="last-updated" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="add-bar">
+    <label>Add Stock</label>
+    <div class="input-wrap">
+      <input type="text" id="ticker-input" placeholder="e.g. CBA, BHP, WBC..." maxlength="10" onkeydown="if(event.key==='Enter')addStock()">
+    </div>
+    <button class="btn btn-primary" id="add-btn" onclick="addStock()">+ Add</button>
+    <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh</button>
+  </div>
+
+  <div class="popular">
+    <span class="popular-label">Quick add:</span>
+    <span class="chip" onclick="quickAdd('CBA')">CBA</span>
+    <span class="chip" onclick="quickAdd('BHP')">BHP</span>
+    <span class="chip" onclick="quickAdd('CSL')">CSL</span>
+    <span class="chip" onclick="quickAdd('WBC')">WBC</span>
+    <span class="chip" onclick="quickAdd('NAB')">NAB</span>
+    <span class="chip" onclick="quickAdd('ANZ')">ANZ</span>
+    <span class="chip" onclick="quickAdd('WES')">WES</span>
+    <span class="chip" onclick="quickAdd('MQG')">MQG</span>
+    <span class="chip" onclick="quickAdd('RIO')">RIO</span>
+    <span class="chip" onclick="quickAdd('FMG')">FMG</span>
+    <span class="chip" onclick="quickAdd('WOW')">WOW</span>
+    <span class="chip" onclick="quickAdd('TLS')">TLS</span>
+  </div>
+
+  <div class="summary-grid" id="summary-grid" style="display:none">
+    <div class="summary-card">
+      <div class="label">Stocks Tracked</div>
+      <div class="value" id="sum-count">0</div>
+      <div class="sub">in watchlist</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Day's Avg Move</div>
+      <div class="value" id="sum-day">—</div>
+      <div class="sub" id="sum-day-sub"></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Best Today</div>
+      <div class="value" id="sum-best">—</div>
+      <div class="sub" id="sum-best-sub"></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Worst Today</div>
+      <div class="value" id="sum-worst">—</div>
+      <div class="sub" id="sum-worst-sub"></div>
+    </div>
+  </div>
+
+  <div id="empty-state" class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    <h3>No stocks added yet</h3>
+    <p>Type an ASX ticker above or click a quick-add chip to start tracking.</p>
+  </div>
+
+  <div id="table-section" style="display:none">
+    <div class="section-header"><div class="section-title">Watchlist</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Stock</th>
+            <th class="right">Price</th>
+            <th class="right">Day Change</th>
+            <th class="right">52W High</th>
+            <th class="right">52W Low</th>
+            <th class="right">Mkt Cap</th>
+            <th class="right">Volume</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="holdings-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="charts-section" style="display:none">
+    <div class="section-header"><div class="section-title">Price History</div></div>
+    <div class="charts-grid" id="charts-grid"></div>
+  </div>
+
+  <div class="disclaimer">Data via Yahoo Finance · Prices may be delayed 15–20 min · Not financial advice</div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const COLORS = ['#58a6ff','#3fb950','#bc8cff','#f0883e','#d29922','#ff7b72','#56d364','#79c0ff','#ffa657','#db61a2'];
+let portfolio = JSON.parse(localStorage.getItem('asx-portfolio') || '[]');
+let stockData = {};
+let chartInstances = {};
+
+function save() { localStorage.setItem('asx-portfolio', JSON.stringify(portfolio)); }
+
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function fmt(n, d=2) {
+  if (n == null || isNaN(n)) return '—';
+  return n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function fmtCap(n) {
+  if (!n) return '—';
+  if (n >= 1e12) return '$' + (n/1e12).toFixed(1) + 'T';
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(0) + 'M';
+  return '$' + n.toLocaleString();
+}
+function fmtVol(n) {
+  if (!n) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+  return n.toLocaleString();
+}
+function clsn(n) { return n >= 0 ? 'up' : 'down'; }
+function arrow(n) { return n >= 0 ? '▲' : '▼'; }
+
+async function fetchStock(ticker) {
+  const symbol = ticker.toUpperCase() + '.AX';
+  const urls = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`,
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const result = json?.chart?.result?.[0];
+      if (!result) continue;
+      const meta = result.meta;
+      const ts = result.timestamp || [];
+      const q = result.indicators?.quote?.[0] || {};
+      const closes = q.close || [];
+      const highs = q.high || [];
+      const lows = q.low || [];
+      const vols = q.volume || [];
+
+      const history = [];
+      for (let i = 0; i < ts.length; i++) {
+        if (closes[i] != null) history.push({ t: ts[i] * 1000, c: closes[i] });
+      }
+
+      const price = meta.regularMarketPrice ?? closes.filter(Boolean).pop();
+      const prev = meta.previousClose ?? meta.chartPreviousClose ?? price;
+      const dayChange = price - prev;
+      const dayChangePct = prev ? (dayChange / prev) * 100 : 0;
+      const validH = highs.filter(v => v != null);
+      const validL = lows.filter(v => v != null);
+
+      return {
+        ticker: ticker.toUpperCase(),
+        name: meta.shortName || meta.longName || ticker.toUpperCase(),
+        price,
+        prev,
+        dayChange,
+        dayChangePct,
+        w52high: validH.length ? Math.max(...validH) : null,
+        w52low: validL.length ? Math.min(...validL) : null,
+        marketCap: meta.marketCap || null,
+        volume: vols[vols.length - 1] || null,
+        history,
+      };
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+async function addStock() {
+  const inp = document.getElementById('ticker-input');
+  const ticker = inp.value.trim().toUpperCase().replace('.AX','');
+  if (!ticker) return;
+  if (portfolio.includes(ticker)) { toast(ticker + ' already in watchlist', 'error'); return; }
+
+  portfolio.push(ticker);
+  save();
+  inp.value = '';
+  renderTable();
+
+  const data = await fetchStock(ticker);
+  if (!data) {
+    toast('Could not find ' + ticker + ' on ASX', 'error');
+    portfolio = portfolio.filter(t => t !== ticker);
+    save();
+  } else {
+    stockData[ticker] = data;
+    toast(data.name + ' added', 'success');
+  }
+  renderAll();
+}
+
+function quickAdd(ticker) {
+  document.getElementById('ticker-input').value = ticker;
+  addStock();
+}
+
+function removeStock(ticker) {
+  portfolio = portfolio.filter(t => t !== ticker);
+  delete stockData[ticker];
+  if (chartInstances[ticker]) { chartInstances[ticker].destroy(); delete chartInstances[ticker]; }
+  const card = document.getElementById('chart-card-' + ticker);
+  if (card) card.remove();
+  save();
+  renderAll();
+}
+
+async function refreshAll() {
+  if (!portfolio.length) return;
+  toast('Refreshing all stocks...');
+  await Promise.all(portfolio.map(async t => {
+    const d = await fetchStock(t);
+    if (d) stockData[t] = d;
+  }));
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'});
+  renderAll();
+  toast('Refreshed!', 'success');
+}
+
+function renderAll() {
+  renderTable();
+  renderSummary();
+  renderCharts();
+}
+
+function renderTable() {
+  const empty = portfolio.length === 0;
+  document.getElementById('empty-state').style.display = empty ? 'block' : 'none';
+  document.getElementById('table-section').style.display = empty ? 'none' : 'block';
+  document.getElementById('charts-section').style.display = empty ? 'none' : 'block';
+  document.getElementById('summary-grid').style.display = empty ? 'none' : 'grid';
+
+  const tbody = document.getElementById('holdings-tbody');
+  tbody.innerHTML = '';
+
+  for (const ticker of portfolio) {
+    const d = stockData[ticker];
+    const tr = document.createElement('tr');
+    if (!d) {
+      tr.innerHTML = `<td><span class="ticker-badge">${ticker}</span><div class="company-name">Loading…</div></td><td class="right" colspan="6"><span class="spinner"></span></td><td><button class="remove-btn" onclick="removeStock('${ticker}')">✕</button></td>`;
+    } else {
+      const nearHigh = d.w52high && d.price >= d.w52high * 0.97;
+      const nearLow = d.w52low && d.price <= d.w52low * 1.03;
+      tr.innerHTML = `
+        <td><span class="ticker-badge">${d.ticker}</span><div class="company-name">${d.name}</div></td>
+        <td class="right" style="font-weight:600;font-variant-numeric:tabular-nums">$${fmt(d.price)}</td>
+        <td class="right"><span class="change-pill ${clsn(d.dayChange)}">${arrow(d.dayChange)} $${Math.abs(d.dayChange).toFixed(2)} (${d.dayChangePct >= 0 ? '+' : ''}${d.dayChangePct.toFixed(2)}%)</span></td>
+        <td class="right ${nearHigh ? 'up' : ''}">$${fmt(d.w52high)}</td>
+        <td class="right ${nearLow ? 'down' : ''}">$${fmt(d.w52low)}</td>
+        <td class="right">${fmtCap(d.marketCap)}</td>
+        <td class="right">${fmtVol(d.volume)}</td>
+        <td><button class="remove-btn" onclick="removeStock('${ticker}')">✕</button></td>`;
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+function renderSummary() {
+  const loaded = portfolio.filter(t => stockData[t]);
+  if (!loaded.length) return;
+  document.getElementById('sum-count').textContent = portfolio.length;
+
+  const avg = loaded.reduce((s, t) => s + stockData[t].dayChangePct, 0) / loaded.length;
+  const dayEl = document.getElementById('sum-day');
+  dayEl.textContent = (avg >= 0 ? '+' : '') + avg.toFixed(2) + '%';
+  dayEl.className = 'value ' + clsn(avg);
+  document.getElementById('sum-day-sub').textContent = loaded.length + ' stocks avg';
+
+  const best = [...loaded].sort((a, b) => stockData[b].dayChangePct - stockData[a].dayChangePct)[0];
+  const worst = [...loaded].sort((a, b) => stockData[a].dayChangePct - stockData[b].dayChangePct)[0];
+  const bestEl = document.getElementById('sum-best');
+  bestEl.textContent = best;
+  bestEl.className = 'value up';
+  document.getElementById('sum-best-sub').textContent = '+' + stockData[best].dayChangePct.toFixed(2) + '%';
+  const worstEl = document.getElementById('sum-worst');
+  worstEl.textContent = worst;
+  worstEl.className = 'value ' + clsn(stockData[worst].dayChangePct);
+  document.getElementById('sum-worst-sub').textContent = stockData[worst].dayChangePct.toFixed(2) + '%';
+}
+
+function filterHistory(history, range) {
+  const now = Date.now();
+  const ranges = { '1w': 7, '1mo': 30, '3mo': 90, '6mo': 180, '1y': 365 };
+  const days = ranges[range] || 365;
+  const cutoff = now - days * 86400000;
+  return history.filter(p => p.t >= cutoff);
+}
+
+function renderCharts() {
+  portfolio.forEach((ticker, idx) => {
+    const d = stockData[ticker];
+    if (!d || !d.history.length) return;
+    const color = COLORS[idx % COLORS.length];
+    const existingCard = document.getElementById('chart-card-' + ticker);
+
+    if (!existingCard) {
+      const card = document.createElement('div');
+      card.className = 'chart-card';
+      card.id = 'chart-card-' + ticker;
+      card.innerHTML = `
+        <div class="chart-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="ticker-badge">${ticker}</span>
+              <span style="color:var(--muted);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</span>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="chart-price" id="cprice-${ticker}">$${fmt(d.price)}</div>
+            <div class="chart-change ${clsn(d.dayChangePct)}" id="cchange-${ticker}">${arrow(d.dayChange)} ${d.dayChangePct >= 0 ? '+' : ''}${d.dayChangePct.toFixed(2)}% today</div>
+          </div>
+        </div>
+        <div style="padding:8px 14px 0;display:flex;gap:4px;justify-content:flex-end">
+          <button class="range-btn" data-ticker="${ticker}" data-range="1w" onclick="setRange(this)">1W</button>
+          <button class="range-btn active" data-ticker="${ticker}" data-range="1mo" onclick="setRange(this)">1M</button>
+          <button class="range-btn" data-ticker="${ticker}" data-range="3mo" onclick="setRange(this)">3M</button>
+          <button class="range-btn" data-ticker="${ticker}" data-range="6mo" onclick="setRange(this)">6M</button>
+          <button class="range-btn" data-ticker="${ticker}" data-range="1y" onclick="setRange(this)">1Y</button>
+        </div>
+        <div class="chart-body"><canvas id="canvas-${ticker}"></canvas></div>`;
+      document.getElementById('charts-grid').appendChild(card);
+    } else {
+      // Update price/change in header
+      const cp = document.getElementById('cprice-' + ticker);
+      const cc = document.getElementById('cchange-' + ticker);
+      if (cp) cp.textContent = '$' + fmt(d.price);
+      if (cc) {
+        cc.textContent = `${arrow(d.dayChange)} ${d.dayChangePct >= 0 ? '+' : ''}${d.dayChangePct.toFixed(2)}% today`;
+        cc.className = 'chart-change ' + clsn(d.dayChangePct);
+      }
+    }
+
+    buildChart(ticker, '1mo', color);
+  });
+}
+
+function buildChart(ticker, range, color) {
+  const d = stockData[ticker];
+  if (!d) return;
+  color = color || COLORS[portfolio.indexOf(ticker) % COLORS.length];
+  const filtered = filterHistory(d.history, range);
+  const labels = filtered.map(p => new Date(p.t));
+  const values = filtered.map(p => p.c);
+
+  const isUp = values.length > 1 ? values[values.length - 1] >= values[0] : true;
+  const lineColor = isUp ? '#3fb950' : '#f85149';
+
+  const ctx = document.getElementById('canvas-' + ticker);
+  if (!ctx) return;
+
+  if (chartInstances[ticker]) {
+    chartInstances[ticker].destroy();
+    delete chartInstances[ticker];
+  }
+
+  chartInstances[ticker] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: lineColor,
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        backgroundColor: (ctx2) => {
+          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 160);
+          g.addColorStop(0, lineColor + '33');
+          g.addColorStop(1, lineColor + '00');
+          return g;
+        },
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#21262d',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#7d8590',
+          bodyColor: '#e6edf3',
+          callbacks: {
+            title: items => new Date(items[0].label).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' }),
+            label: item => ' $' + item.raw.toFixed(2),
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: range === '1w' ? 'day' : range === '1mo' ? 'week' : 'month', displayFormats: { day:'d MMM', week:'d MMM', month:'MMM yy' } },
+          grid: {            color: '#21262d', borderDash: [2,4],
+          },
+          ticks: { color: '#7d8590', maxTicksLimit: 6, font: { size: 11 } }
+        },
+        y: {
+          position: 'right',
+          grid: { color: '#21262d', borderDash: [2,4] },
+          ticks: { color: '#7d8590', font: { size: 11 }, callback: v => '$' + v.toFixed(2) }
+        }
+      }
+    }
+  });
+}
+
+function setRange(btn) {
+  const ticker = btn.dataset.ticker;
+  const range = btn.dataset.range;
+  const card = document.getElementById('chart-card-' + ticker);
+  if (card) {
+    card.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  buildChart(ticker, range);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  renderTable();
+  if (portfolio.length) {
+    await Promise.all(portfolio.map(async t => {
+      const d = await fetchStock(t);
+      if (d) stockData[t] = d;
+      renderTable(); // update progressively
+    }));
+    renderAll();
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
+init();
+</script>
+</body>
+</html>
